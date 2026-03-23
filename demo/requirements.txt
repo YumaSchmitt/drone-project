@@ -1,0 +1,4 @@
+opencv-python-headless>=4.5
+numpy>=1.21
+shapely>=2.0
+Pillow>=9.0
