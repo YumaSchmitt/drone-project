@@ -1,0 +1,4 @@
+flask>=3.0
+requests>=2.28
+opencv-python-headless>=4.5
+numpy>=1.21

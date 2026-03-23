@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drone Farmland Cutter</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ===== Header ===== -->
+  <header>
+    <span class="logo">🌾</span>
+    <h1>Drone Farmland Cutter</h1>
+    <span class="subtitle">GPS-based video &amp; image masking</span>
+    <span class="spacer"></span>
+    <a href="https://github.com/YumaSchmitt/seneca" target="_blank">GitHub</a>
+  </header>
+
+  <!-- ===== Main area ===== -->
+  <div class="main-area">
+
+    <!-- Map -->
+    <div id="map-container">
+      <div id="map"></div>
+      <div id="draw-hint"></div>
+      <div id="map-pts-badge"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-scroll">
+
+        <!-- ── 1. Upload Media ── -->
+        <div class="card">
+          <div class="card-header">
+            <span class="icon">📁</span>
+            <h3>Upload Media</h3>
+            <span class="toggle">▾</span>
+          </div>
+          <div class="card-body">
+            <label>Video or Image file</label>
+            <input type="file" id="media-file"
+              accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,image/jpeg,image/png,image/tiff" />
+            <p class="hint">Supported: MP4, MOV, AVI, WEBM, JPG, PNG</p>
+
+            <div class="divider"></div>
+            <p class="hint">
+              <strong>Demo:</strong> Run <code>python demo/run_demo.py</code> first,
+              then upload <code>demo/output/demo_input.mp4</code> and click
+              <em>Use demo bounds</em> below.
+            </p>
+          </div>
+        </div>
+
+        <!-- ── 2. GPS Bounds ── -->
+        <div class="card">
+          <div class="card-header">
+            <span class="icon">📍</span>
+            <h3>Video GPS Bounds</h3>
+            <span class="toggle">▾</span>
+          </div>
+          <div class="card-body">
+            <p class="hint" style="margin-bottom:8px">
+              The geographic extent of the full video/image frame.
+            </p>
+
+            <div class="input-row">
+              <div>
+                <label>Lat min (south)</label>
+                <input type="number" id="lat_min" step="any" placeholder="31.765" />
+              </div>
+              <div>
+                <label>Lat max (north)</label>
+                <input type="number" id="lat_max" step="any" placeholder="31.771" />
+              </div>
+            </div>
+            <div class="input-row">
+              <div>
+                <label>Lon min (west)</label>
+                <input type="number" id="lon_min" step="any" placeholder="35.207" />
+              </div>
+              <div>
+                <label>Lon max (east)</label>
+                <input type="number" id="lon_max" step="any" placeholder="35.219" />
+              </div>
+            </div>
+
+            <button class="btn btn-outline btn-sm" id="btn-demo-bounds"
+              style="margin-top:10px">
+              🔁 Use demo values
+            </button>
+
+            <div class="divider"></div>
+            <p class="hint">
+              <strong>DJI Mavic tip:</strong> Use the <code>.SRT</code> subtitle file
+              from your flight to get GPS per frame, or use ground footprint
+              = 2 × altitude × tan(FOV/2).
+            </p>
+          </div>
+        </div>
+
+        <!-- ── 3. Farmland Polygon ── -->
+        <div class="card">
+          <div class="card-header">
+            <span class="icon">🌾</span>
+            <h3>Farmland Polygon</h3>
+            <span class="toggle">▾</span>
+          </div>
+          <div class="card-body">
+
+            <div class="tabs">
+              <div class="tab active" data-tab="draw">Draw on map</div>
+              <div class="tab" data-tab="kml">Import KML</div>
+            </div>
+
+            <!-- Draw tab -->
+            <div class="tab-panel active" data-panel="draw">
+              <p class="hint" style="margin-bottom:8px">
+                Click points on the map to trace the farmland boundary,
+                then double-click or press ✔ to close the polygon.
+              </p>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" id="btn-start-draw">
+                  ✏️ Draw on map
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-finish-draw"
+                  style="display:none">✔ Finish</button>
+                <button class="btn btn-outline btn-sm" id="btn-clear-draw">
+                  🗑 Clear
+                </button>
+              </div>
+              <p id="draw-pts-count" class="hint" style="margin-top:6px"></p>
+            </div>
+
+            <!-- KML tab -->
+            <div class="tab-panel" data-panel="kml">
+
+              <!-- Sub-tabs: file vs URL -->
+              <div class="tabs" style="margin-bottom:10px">
+                <div class="tab active" data-tab="kml-file">Upload file</div>
+                <div class="tab" data-tab="kml-url">Google My Maps URL</div>
+              </div>
+
+              <div class="tab-panel active" data-panel="kml-file">
+                <label>KML / KMZ file</label>
+                <input type="file" id="kml-file-input" accept=".kml,.kmz" />
+                <p class="hint">Export from Google My Maps:
+                  ⋮ → Download KML</p>
+              </div>
+
+              <div class="tab-panel" data-panel="kml-url">
+                <label>Google My Maps share link</label>
+                <input type="url" id="kml-url-input"
+                  placeholder="https://www.google.com/maps/d/edit?mid=..." />
+                <p class="hint">
+                  Paste the URL from your Google My Maps (must be publicly shared).
+                  The KML will be fetched from Google automatically.
+                </p>
+                <button class="btn btn-primary btn-sm" id="btn-fetch-kml"
+                  style="margin-top:8px">
+                  ↓ Fetch KML
+                </button>
+              </div>
+
+              <p id="kml-status" class="hint" style="margin-top:6px"></p>
+
+              <!-- Polygon list (shown after KML is loaded) -->
+              <div id="kml-poly-section" style="display:none;margin-top:8px">
+                <label>Select farmland polygon</label>
+                <div id="kml-poly-list" class="poly-list"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── 4. Options ── -->
+        <div class="card collapsed">
+          <div class="card-header">
+            <span class="icon">⚙️</span>
+            <h3>Options</h3>
+            <span class="toggle">▾</span>
+          </div>
+          <div class="card-body">
+            <label style="display:flex;align-items:center;gap:8px;margin-top:0;cursor:pointer">
+              <input type="checkbox" id="opt-tight" />
+              <span>Tight crop (trim black borders)</span>
+            </label>
+            <p class="hint">Output will be cropped to the bounding box of the polygon.</p>
+
+            <label style="margin-top:10px">Background colour</label>
+            <input type="color" id="opt-bg" value="#000000"
+              style="width:60px;height:32px;border:none;cursor:pointer;padding:0" />
+            <p class="hint">Colour shown outside the farmland boundary.</p>
+          </div>
+        </div>
+
+        <!-- ── 5. Process button ── -->
+        <div>
+          <button class="btn btn-process btn-full" id="btn-process">
+            ▶ Cut Video / Image
+          </button>
+          <p id="process-error" class="error-msg" style="margin-top:4px"></p>
+        </div>
+
+      </div><!-- /sidebar-scroll -->
+
+      <!-- Results bar (inside sidebar, at bottom) -->
+      <div id="results-bar">
+        <div class="progress-wrap">
+          <div class="progress-label">
+            Processing… <span id="progress-pct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+        <span class="status-badge" id="status-badge"></span>
+        <button class="btn btn-primary btn-sm" id="btn-download"
+          style="display:none">⬇ Download</button>
+        <p id="results-error" class="error-msg"></p>
+      </div>
+
+    </div><!-- /sidebar -->
+
+  </div><!-- /main-area -->
+</div><!-- /app-layout -->
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- App JS -->
+<script src="/static/app.js"></script>
+
+</body>
+</html>
