@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ farm.name }} - ダッシュボード</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- Header -->
+  <header>
+    <a href="/" class="header-back">← 戻る</a>
+    <span class="logo">🌾</span>
+    <h1>{{ farm.name }}</h1>
+    <span class="subtitle">{{ farm.location }}</span>
+    <span class="spacer"></span>
+    <span class="header-owner">{{ farm.owner }}</span>
+  </header>
+
+  <!-- Dashboard content -->
+  <div class="dashboard-content">
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">🌡️</div>
+        <div class="stat-value">{{ farm.weather.temp_c }}°C</div>
+        <div class="stat-label">{{ farm.weather.condition }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💧</div>
+        <div class="stat-value">{{ farm.weather.humidity }}%</div>
+        <div class="stat-label">湿度</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🌬️</div>
+        <div class="stat-value">{{ farm.weather.wind_kmh }} km/h</div>
+        <div class="stat-label">風速</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🛩️</div>
+        <div class="stat-value">{{ farm.num_flights }}</div>
+        <div class="stat-label">飛行回数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🌾</div>
+        <div class="stat-value">{{ farm.total_area_ha }} ha</div>
+        <div class="stat-label">総面積</div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-row">
+      <a href="{{ farm.google_my_maps_url }}" target="_blank" class="btn btn-primary btn-lg">
+        ＋ 新しい圃場を追加 (Google My Maps)
+      </a>
+    </div>
+
+    <!-- Farmland list -->
+    <h2 class="section-title">圃場一覧</h2>
+    <div class="farmland-grid">
+      {% for fl in farm.farmlands %}
+      <div class="farmland-card">
+        <div class="farmland-card-header">
+          <h3>{{ fl.name }}</h3>
+          <span class="crop-badge">{{ fl.crop }}</span>
+        </div>
+        <div class="farmland-card-body">
+          <div class="farmland-map" id="map-{{ loop.index0 }}"></div>
+          <div class="farmland-info">
+            <span>{{ fl.area_ha }} ha</span>
+            <span>{{ fl.polygon|length }} 頂点</span>
+          </div>
+          <a href="/aerial/{{ farm.id }}/{{ loop.index0 }}" class="btn btn-primary btn-sm btn-full">
+            🛰️ 航空写真を見る
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const farmlands = {{ farmlands_json | safe }};
+
+farmlands.forEach((fl, i) => {
+  const mapEl = document.getElementById(`map-${i}`);
+  if (!mapEl) return;
+
+  const m = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 20,
+  }).addTo(m);
+
+  const latlngs = fl.polygon.map(c => [c[0], c[1]]);
+  const poly = L.polygon(latlngs, {
+    color: "#52b788", fillColor: "#52b788", fillOpacity: 0.3, weight: 2,
+  }).addTo(m);
+  m.fitBounds(poly.getBounds().pad(0.2));
+});
+</script>
+
+</body>
+</html>
