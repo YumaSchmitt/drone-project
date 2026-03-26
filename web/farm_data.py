@@ -1,14 +1,21 @@
 """
 Demo farm data for 農家A and 農家B.
 
-When testmap.kmz is available, polygons are loaded from it.
-Otherwise, placeholder polygons near Ibaraki, Japan are used.
+Polygon data is loaded from the shared Google My Maps:
+  https://www.google.com/maps/d/u/0/edit?mid=1EbZB0IZa5odksjfC1PAUYrDT2mKPNRg
+
+If the map is unreachable (no network), placeholder polygons near
+Ibaraki, Japan are used instead.
 """
 
 import os
-from kml_parser import parse_kmz_file
+from kml_parser import parse_kml_string, parse_kmz_bytes
 
-# Placeholder polygons (Ibaraki, Japan area)
+GOOGLE_MY_MAPS_MID = "1EbZB0IZa5odksjfC1PAUYrDT2mKPNRg"
+GOOGLE_MY_MAPS_URL = f"https://www.google.com/maps/d/u/0/edit?mid={GOOGLE_MY_MAPS_MID}&usp=sharing"
+_KML_EXPORT_URL    = f"https://www.google.com/maps/d/kml?mid={GOOGLE_MY_MAPS_MID}&forcekml=1"
+
+# Placeholder polygons (Ibaraki, Japan area) — used when network is unavailable
 _PLACEHOLDER_FARMS = {
     "farm_a": {
         "id": "farm_a",
@@ -18,7 +25,7 @@ _PLACEHOLDER_FARMS = {
         "total_area_ha": 12.4,
         "num_flights": 28,
         "weather": {"temp_c": 18, "condition": "晴れ", "humidity": 62, "wind_kmh": 12},
-        "google_my_maps_url": "https://www.google.com/maps/d/edit",
+        "google_my_maps_url": GOOGLE_MY_MAPS_URL,
         "farmlands": [
             {
                 "name": "水田1号",
@@ -54,7 +61,7 @@ _PLACEHOLDER_FARMS = {
         "total_area_ha": 8.7,
         "num_flights": 15,
         "weather": {"temp_c": 17, "condition": "曇り", "humidity": 70, "wind_kmh": 8},
-        "google_my_maps_url": "https://www.google.com/maps/d/edit",
+        "google_my_maps_url": GOOGLE_MY_MAPS_URL,
         "farmlands": [
             {
                 "name": "畑A-1",
@@ -85,78 +92,99 @@ _PLACEHOLDER_FARMS = {
 }
 
 
+def _poly_to_farmland(poly):
+    coords = poly["coordinates"]
+    lats = [c[0] for c in coords]
+    lons = [c[1] for c in coords]
+    center = (sum(lats) / len(lats), sum(lons) / len(lons))
+    # Rough area estimate in hectares
+    area_ha = round(
+        abs((max(lats) - min(lats)) * (max(lons) - min(lons)) * 111_000 * 91_000) / 10_000, 1
+    )
+    return {
+        "name": poly["name"],
+        "area_ha": area_ha,
+        "crop": "---",
+        "polygon": coords,
+        "center": center,
+    }
+
+
+def _assign_polygons(polygons):
+    """Split parsed polygons into farm_a / farm_b by name."""
+    farm_a_polys, farm_b_polys, unassigned = [], [], []
+    for poly in polygons:
+        name = poly["name"]
+        if "農家A" in name:
+            farm_a_polys.append(poly)
+        elif "農家B" in name:
+            farm_b_polys.append(poly)
+        else:
+            unassigned.append(poly)
+
+    # If names don't contain 農家A/B, split unassigned evenly
+    if not farm_a_polys and not farm_b_polys and unassigned:
+        mid = max(len(unassigned) // 2, 1)
+        farm_a_polys = unassigned[:mid]
+        farm_b_polys = unassigned[mid:]
+
+    result = {}
+    for farm_id, polys in [("farm_a", farm_a_polys), ("farm_b", farm_b_polys)]:
+        if not polys:
+            continue
+        farmlands = [_poly_to_farmland(p) for p in polys]
+        farm = dict(_PLACEHOLDER_FARMS[farm_id])
+        farm["farmlands"] = farmlands
+        farm["total_area_ha"] = round(sum(f["area_ha"] for f in farmlands), 1)
+        result[farm_id] = farm
+    return result or None
+
+
+def _try_fetch_google_my_maps():
+    """Fetch polygon data directly from the Google My Maps KML export."""
+    import requests
+    try:
+        resp = requests.get(_KML_EXPORT_URL, timeout=10,
+                            headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        content = resp.content
+        # Response may be KMZ (zip) or plain KML
+        if content[:2] == b'PK':
+            polygons = parse_kmz_bytes(content)
+        else:
+            polygons = parse_kml_string(resp.text)
+        if polygons:
+            print(f"[farm_data] Loaded {len(polygons)} polygon(s) from Google My Maps")
+            return _assign_polygons(polygons)
+    except Exception as e:
+        print(f"[farm_data] Google My Maps fetch failed (will use placeholders): {e}")
+    return None
+
+
 def _try_load_kmz():
-    """Try loading testmap.kmz and map polygons to farm_a / farm_b."""
+    """Fallback: try loading testmap.kmz which contains a NetworkLink to the same map."""
+    from kml_parser import parse_kmz_file
     kmz_path = os.path.join(os.path.dirname(__file__), "..", "testmap.kmz")
     if not os.path.exists(kmz_path):
         return None
-
     try:
         polygons = parse_kmz_file(kmz_path)
+        if polygons:
+            return _assign_polygons(polygons)
     except Exception as e:
-        print(f"[farm_data] KMZ parse error (will use placeholders): {e}")
-        return None
-
-    if not polygons:
-        print("[farm_data] No polygons in KMZ (network may be needed). Using placeholders.")
-        return None
-
-    # Try to assign polygons to farms based on name containing 農家A / 農家B
-    farm_a_polys = []
-    farm_b_polys = []
-    for poly in polygons:
-        name = poly["name"]
-        if "農家A" in name or "A" in name.upper().split("農家")[-1][:2]:
-            farm_a_polys.append(poly)
-        elif "農家B" in name or "B" in name.upper().split("農家")[-1][:2]:
-            farm_b_polys.append(poly)
-
-    # If no clear mapping, split evenly
-    if not farm_a_polys and not farm_b_polys:
-        mid = len(polygons) // 2
-        farm_a_polys = polygons[:max(mid, 1)]
-        farm_b_polys = polygons[max(mid, 1):]
-
-    def _poly_to_farmland(poly, idx):
-        coords = poly["coordinates"]
-        lats = [c[0] for c in coords]
-        lons = [c[1] for c in coords]
-        center = (sum(lats) / len(lats), sum(lons) / len(lons))
-        return {
-            "name": poly["name"],
-            "area_ha": round(abs((max(lats) - min(lats)) * (max(lons) - min(lons)) * 111000 * 91000) / 10000, 1),
-            "crop": "---",
-            "polygon": coords,
-            "center": center,
-        }
-
-    result = {}
-    if farm_a_polys:
-        farmlands = [_poly_to_farmland(p, i) for i, p in enumerate(farm_a_polys)]
-        result["farm_a"] = dict(_PLACEHOLDER_FARMS["farm_a"])
-        result["farm_a"]["farmlands"] = farmlands
-        result["farm_a"]["total_area_ha"] = round(sum(f["area_ha"] for f in farmlands), 1)
-
-    if farm_b_polys:
-        farmlands = [_poly_to_farmland(p, i) for i, p in enumerate(farm_b_polys)]
-        result["farm_b"] = dict(_PLACEHOLDER_FARMS["farm_b"])
-        result["farm_b"]["farmlands"] = farmlands
-        result["farm_b"]["total_area_ha"] = round(sum(f["area_ha"] for f in farmlands), 1)
-
-    return result if result else None
+        print(f"[farm_data] KMZ parse error: {e}")
+    return None
 
 
 def get_farms():
-    """Return farm data dict. Uses KMZ data if available, else placeholders."""
-    kmz_data = _try_load_kmz()
-    if kmz_data:
-        # Merge with placeholders for any missing farm
+    """Return farm data. Tries Google My Maps → KMZ → placeholder."""
+    data = _try_fetch_google_my_maps() or _try_load_kmz()
+    if data:
         farms = dict(_PLACEHOLDER_FARMS)
-        farms.update(kmz_data)
+        farms.update(data)
         return farms
     return dict(_PLACEHOLDER_FARMS)
 
 
 def get_farm(farm_id):
-    """Return a single farm by ID, or None."""
     return get_farms().get(farm_id)
