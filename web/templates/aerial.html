@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ farmland.name }} - 航空写真</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- Header -->
+  <header>
+    <a href="/dashboard/{{ farm.id }}" class="header-back">← {{ farm.name }}</a>
+    <span class="logo">🛰️</span>
+    <h1>{{ farmland.name }}</h1>
+    <span class="subtitle">航空写真ビュー</span>
+    <span class="spacer"></span>
+    <span class="crop-badge" style="margin:0">{{ farmland.crop }}</span>
+    <span class="header-owner">{{ farmland.area_ha }} ha</span>
+  </header>
+
+  <!-- Full-screen map -->
+  <div class="aerial-area">
+    <div id="aerial-map"></div>
+    <canvas id="blur-overlay"></canvas>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const polygon = {{ polygon_json | safe }};
+const center = {{ center_json | safe }};
+
+// --- Map setup ---
+const map = L.map("aerial-map", { zoomControl: true }).setView(center, 17);
+
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+  attribution: 'Tiles &copy; Esri',
+  maxZoom: 20,
+}).addTo(map);
+
+// Draw polygon border
+const latlngs = polygon.map(c => [c[0], c[1]]);
+const polyLayer = L.polygon(latlngs, {
+  color: "#52b788", fillColor: "transparent", fillOpacity: 0, weight: 3,
+}).addTo(map);
+map.fitBounds(polyLayer.getBounds().pad(0.15));
+
+// --- Blur overlay using Canvas ---
+const canvas = document.getElementById("blur-overlay");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+
+function drawBlurOverlay() {
+  resizeCanvas();
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Clear
+  ctx.clearRect(0, 0, w, h);
+
+  // Semi-transparent dark overlay covering everything
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillRect(0, 0, w, h);
+
+  // Cut out the polygon (clear hole)
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+
+  latlngs.forEach((ll, i) => {
+    const pt = map.latLngToContainerPoint(L.latLng(ll[0], ll[1]));
+    if (i === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0, 0, 0, 1)";
+  ctx.fill();
+
+  // Reset composite
+  ctx.globalCompositeOperation = "source-over";
+
+  // Draw border
+  ctx.beginPath();
+  latlngs.forEach((ll, i) => {
+    const pt = map.latLngToContainerPoint(L.latLng(ll[0], ll[1]));
+    if (i === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.closePath();
+  ctx.strokeStyle = "#52b788";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+// Redraw on map move/zoom
+map.on("move", drawBlurOverlay);
+map.on("zoom", drawBlurOverlay);
+map.on("resize", drawBlurOverlay);
+window.addEventListener("resize", drawBlurOverlay);
+
+// Initial draw after tiles load
+map.whenReady(() => {
+  setTimeout(drawBlurOverlay, 300);
+});
+</script>
+
+</body>
+</html>

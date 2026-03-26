@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drone Farmland Cutter</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="login-page">
+
+<div class="login-container">
+  <div class="login-header">
+    <span class="logo-large">🌾</span>
+    <h1>Drone Farmland Cutter</h1>
+    <p class="login-subtitle">アカウントを選択してください</p>
+  </div>
+
+  <div class="farm-cards">
+    {% for farm in farms %}
+    <a href="/dashboard/{{ farm.id }}" class="farm-card">
+      <div class="farm-card-icon">{{ '🌱' if loop.index == 1 else '🌿' }}</div>
+      <h2>{{ farm.name }}</h2>
+      <p class="farm-card-owner">{{ farm.owner }}</p>
+      <p class="farm-card-location">{{ farm.location }}</p>
+      <div class="farm-card-stats">
+        <span>{{ farm.total_area_ha }} ha</span>
+        <span>{{ farm.farmlands|length }} 圃場</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+</body>
+</html>

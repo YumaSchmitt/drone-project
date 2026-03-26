@@ -25,7 +25,8 @@ from flask import Flask, request, jsonify, render_template, send_file, abort
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "demo"))
 from farmland_cutter import FarmlandCutter
 from gps_utils import GPSBounds
-from kml_parser import parse_kml_string
+from kml_parser import parse_kml_string, parse_kmz_bytes
+from farm_data import get_farms, get_farm
 
 # ------------------------------------------------------------------ #
 app = Flask(__name__)
@@ -133,7 +134,34 @@ def _process_job(job_id: str, input_path: str, output_path: str,
 # ------------------------------------------------------------------ #
 
 @app.route("/")
-def index():
+def login():
+    farms = get_farms()
+    farm_list = list(farms.values())
+    return render_template("login.html", farms=farm_list)
+
+
+@app.route("/dashboard/<farm_id>")
+def dashboard(farm_id):
+    farm = get_farm(farm_id)
+    if not farm:
+        abort(404)
+    return render_template("dashboard.html", farm=farm,
+                           farmlands_json=json.dumps(farm["farmlands"]))
+
+
+@app.route("/aerial/<farm_id>/<int:field_idx>")
+def aerial_view(farm_id, field_idx):
+    farm = get_farm(farm_id)
+    if not farm or field_idx >= len(farm["farmlands"]):
+        abort(404)
+    fl = farm["farmlands"][field_idx]
+    return render_template("aerial.html", farm=farm, farmland=fl,
+                           polygon_json=json.dumps(fl["polygon"]),
+                           center_json=json.dumps(fl["center"]))
+
+
+@app.route("/cutter")
+def cutter():
     return render_template("index.html")
 
 
@@ -142,13 +170,18 @@ def parse_kml_upload():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     f = request.files["file"]
-    text = f.read().decode("utf-8", errors="replace")
+    raw = f.read()
+    fname = (f.filename or "").lower()
     try:
-        polygons = parse_kml_string(text)
+        if fname.endswith(".kmz"):
+            polygons = parse_kmz_bytes(raw)
+        else:
+            text = raw.decode("utf-8", errors="replace")
+            polygons = parse_kml_string(text)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     if not polygons:
-        return jsonify({"error": "No polygons found in KML"}), 400
+        return jsonify({"error": "No polygons found in KML/KMZ"}), 400
     return jsonify({"polygons": polygons})
 
 
