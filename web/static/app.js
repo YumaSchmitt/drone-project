@@ -7,9 +7,10 @@
 // ------------------------------------------------------------------ //
 const map = L.map("map", { zoomControl: true }).setView([36.500581661518986, 140.33317567868494], 14);
 
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-  maxZoom: 20,
+L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+  attribution: 'Imagery &copy; Google',
+  maxZoom: 21,
+  maxNativeZoom: 21,
 }).addTo(map);
 
 // Drawing state
