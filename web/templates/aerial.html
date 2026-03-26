@@ -25,7 +25,14 @@
   <!-- Full-screen map -->
   <div class="aerial-area">
     <div id="aerial-map"></div>
-    <canvas id="blur-overlay"></canvas>
+    <canvas id="dark-overlay"></canvas>
+
+    <!-- Timestamp selector bar -->
+    <div id="timestamp-bar">
+      <span class="ts-label">🛰️ 撮影時期</span>
+      <div class="ts-sources" id="ts-sources"></div>
+      <div class="ts-note" id="ts-note"></div>
+    </div>
   </div>
 </div>
 
@@ -34,60 +41,127 @@
 const polygon = {{ polygon_json | safe }};
 const center = {{ center_json | safe }};
 
-// --- Map setup ---
+// ── Tile sources ────────────────────────────────────────────────────
+// Each entry is a selectable timestamp/source. NASA GIBS Landsat monthly
+// composites provide reliable global coverage from 2013 onward.
+const SOURCES = [
+  {
+    id: "latest",
+    label: "最新",
+    sublabel: "Google",
+    url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+    opts: { maxZoom: 21, maxNativeZoom: 21, attribution: "Imagery © Google" },
+  },
+  {
+    id: "2024",
+    label: "2024",
+    sublabel: "Landsat",
+    url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly/default/2024-06-01/GoogleMapsCompatible_Level12/{z}/{y}/{x}.jpg",
+    opts: { maxZoom: 12, attribution: "NASA GIBS / Landsat" },
+  },
+  {
+    id: "2023",
+    label: "2023",
+    sublabel: "Landsat",
+    url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly/default/2023-06-01/GoogleMapsCompatible_Level12/{z}/{y}/{x}.jpg",
+    opts: { maxZoom: 12, attribution: "NASA GIBS / Landsat" },
+  },
+  {
+    id: "2022",
+    label: "2022",
+    sublabel: "Landsat",
+    url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly/default/2022-06-01/GoogleMapsCompatible_Level12/{z}/{y}/{x}.jpg",
+    opts: { maxZoom: 12, attribution: "NASA GIBS / Landsat" },
+  },
+  {
+    id: "2020",
+    label: "2020",
+    sublabel: "Landsat",
+    url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly/default/2020-06-01/GoogleMapsCompatible_Level12/{z}/{y}/{x}.jpg",
+    opts: { maxZoom: 12, attribution: "NASA GIBS / Landsat" },
+  },
+  {
+    id: "2018",
+    label: "2018",
+    sublabel: "Landsat",
+    url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Landsat_WELD_CorrectedReflectance_TrueColor_Global_Monthly/default/2018-06-01/GoogleMapsCompatible_Level12/{z}/{y}/{x}.jpg",
+    opts: { maxZoom: 12, attribution: "NASA GIBS / Landsat" },
+  },
+];
+
+// ── Map setup ────────────────────────────────────────────────────────
 const map = L.map("aerial-map", { zoomControl: true }).setView(center, 17);
+let currentTileLayer = null;
+let currentSourceId = "latest";
 
-L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
-  attribution: 'Imagery &copy; Google',
-  maxZoom: 21,
-  maxNativeZoom: 21,
-}).addTo(map);
+function setTileSource(source) {
+  if (currentTileLayer) map.removeLayer(currentTileLayer);
+  currentTileLayer = L.tileLayer(source.url, source.opts).addTo(map);
+  currentSourceId = source.id;
 
-// Draw polygon border
+  // Update button states
+  document.querySelectorAll(".ts-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.id === source.id);
+  });
+
+  // Show note for NASA/Landsat sources
+  const note = document.getElementById("ts-note");
+  if (source.id !== "latest") {
+    note.textContent = "Landsat 30m・6月合成（NASA GIBS）";
+    note.style.display = "block";
+  } else {
+    note.style.display = "none";
+  }
+}
+
+// Build timestamp buttons
+const container = document.getElementById("ts-sources");
+SOURCES.forEach(src => {
+  const btn = document.createElement("button");
+  btn.className = "ts-btn" + (src.id === "latest" ? " active" : "");
+  btn.dataset.id = src.id;
+  btn.innerHTML = `<span class="ts-btn-year">${src.label}</span><span class="ts-btn-sub">${src.sublabel}</span>`;
+  btn.addEventListener("click", () => setTileSource(src));
+  container.appendChild(btn);
+});
+
+// Load default
+setTileSource(SOURCES[0]);
+
+// ── Polygon border ───────────────────────────────────────────────────
 const latlngs = polygon.map(c => [c[0], c[1]]);
 const polyLayer = L.polygon(latlngs, {
   color: "#52b788", fillColor: "transparent", fillOpacity: 0, weight: 3,
 }).addTo(map);
 map.fitBounds(polyLayer.getBounds().pad(0.15));
 
-// --- Blur overlay using Canvas ---
-const canvas = document.getElementById("blur-overlay");
+// ── Fully-black outside overlay (Canvas) ────────────────────────────
+const canvas = document.getElementById("dark-overlay");
 const ctx = canvas.getContext("2d");
 
-function resizeCanvas() {
-  canvas.width = canvas.offsetWidth;
+function drawOverlay() {
+  canvas.width  = canvas.offsetWidth;
   canvas.height = canvas.offsetHeight;
-}
+  const w = canvas.width, h = canvas.height;
 
-function drawBlurOverlay() {
-  resizeCanvas();
-  const w = canvas.width;
-  const h = canvas.height;
-
-  // Clear
+  // Fill entire canvas black
   ctx.clearRect(0, 0, w, h);
-
-  // Semi-transparent dark overlay covering everything
-  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, w, h);
 
-  // Cut out the polygon (clear hole)
+  // Punch a transparent hole for the farmland polygon
   ctx.globalCompositeOperation = "destination-out";
   ctx.beginPath();
-
   latlngs.forEach((ll, i) => {
     const pt = map.latLngToContainerPoint(L.latLng(ll[0], ll[1]));
     if (i === 0) ctx.moveTo(pt.x, pt.y);
     else ctx.lineTo(pt.x, pt.y);
   });
   ctx.closePath();
-  ctx.fillStyle = "rgba(0, 0, 0, 1)";
   ctx.fill();
 
-  // Reset composite
+  // Draw border on top
   ctx.globalCompositeOperation = "source-over";
-
-  // Draw border
   ctx.beginPath();
   latlngs.forEach((ll, i) => {
     const pt = map.latLngToContainerPoint(L.latLng(ll[0], ll[1]));
@@ -100,16 +174,10 @@ function drawBlurOverlay() {
   ctx.stroke();
 }
 
-// Redraw on map move/zoom
-map.on("move", drawBlurOverlay);
-map.on("zoom", drawBlurOverlay);
-map.on("resize", drawBlurOverlay);
-window.addEventListener("resize", drawBlurOverlay);
-
-// Initial draw after tiles load
-map.whenReady(() => {
-  setTimeout(drawBlurOverlay, 300);
-});
+map.on("move", drawOverlay);
+map.on("zoom", drawOverlay);
+window.addEventListener("resize", drawOverlay);
+map.whenReady(() => setTimeout(drawOverlay, 300));
 </script>
 
 </body>

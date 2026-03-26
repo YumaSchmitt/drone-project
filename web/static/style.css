@@ -500,7 +500,7 @@ input[type="file"]:hover { border-color: var(--green-light); }
   height: 100%;
 }
 
-#blur-overlay {
+#dark-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -508,4 +508,77 @@ input[type="file"]:hover { border-color: var(--green-light); }
   height: 100%;
   pointer-events: none;
   z-index: 500;
+}
+
+/* ===== Timestamp selector bar ===== */
+#timestamp-bar {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 25, 15, 0.88);
+  border: 1px solid rgba(82, 183, 136, 0.4);
+  border-radius: 40px;
+  padding: 8px 16px;
+  z-index: 600;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.ts-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  margin-right: 4px;
+}
+
+.ts-sources {
+  display: flex;
+  gap: 6px;
+}
+
+.ts-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ts-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+.ts-btn.active {
+  background: var(--green-mid);
+  border-color: var(--green-light);
+  color: #fff;
+}
+
+.ts-btn-year {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ts-btn-sub {
+  font-size: 9px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ts-note {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  display: none;
+  margin-left: 4px;
 }
