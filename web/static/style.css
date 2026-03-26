@@ -374,6 +374,10 @@ input[type="file"]:hover { border-color: var(--green-light); }
   text-decoration: none;
   font-size: 13px;
   margin-right: 8px;
+  padding: 8px 4px;          /* larger tap target */
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 .header-back:hover { color: #fff; }
 
@@ -581,4 +585,99 @@ input[type="file"]:hover { border-color: var(--green-light); }
   color: rgba(255,255,255,0.45);
   display: none;
   margin-left: 4px;
+}
+
+/* ================================================================
+   MOBILE / RESPONSIVE  (≤ 768px)
+   ================================================================ */
+@media (max-width: 768px) {
+
+  /* ── Header ── */
+  header {
+    padding: 0 12px;
+    gap: 8px;
+    height: 48px;
+  }
+  header h1 { font-size: 15px; }
+  header .subtitle { display: none; }
+  header .logo { font-size: 18px; }
+
+  /* ── Cutter tool: stack map above, controls below ── */
+  .main-area {
+    flex-direction: column;
+  }
+
+  #map-container {
+    height: 45vh;
+    min-height: 200px;
+    flex: none;
+  }
+
+  #sidebar {
+    width: 100%;
+    height: 55vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Login page ── */
+  .login-container { padding: 24px 16px; }
+  .logo-large { font-size: 36px; }
+  .login-header h1 { font-size: 22px; }
+
+  .farm-cards { flex-direction: column; align-items: center; gap: 16px; }
+  .farm-card { width: 100%; max-width: 340px; padding: 24px 20px; }
+
+  /* ── Dashboard ── */
+  .dashboard-content { padding: 12px 14px; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .stat-card { padding: 10px 8px; min-width: 0; }
+  .stat-icon { font-size: 18px; margin-bottom: 4px; }
+  .stat-value { font-size: 16px; }
+  .stat-label { font-size: 10px; }
+
+  .action-row { flex-direction: column; }
+  .btn-lg { font-size: 14px; padding: 11px 16px; }
+
+  .section-title { font-size: 15px; margin-bottom: 10px; }
+
+  .farmland-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .farmland-map { height: 130px; }
+
+  /* ── Aerial view header ── */
+  .header-back { font-size: 12px; }
+  .header-owner { display: none; }
+
+  /* ── Timestamp bar: full-width scrollable strip ── */
+  #timestamp-bar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 6px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+
+  .ts-sources { gap: 4px; }
+
+  .ts-btn { padding: 4px 10px; }
+  .ts-btn-year { font-size: 12px; }
+  .ts-note { display: none !important; }
 }
