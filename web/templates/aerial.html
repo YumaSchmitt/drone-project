@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{{ farmland.name }} - 航空写真</title>
+  <title>{{ farmland.name }} - ドローン写真</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
@@ -14,9 +14,9 @@
   <!-- Header -->
   <header>
     <a href="/dashboard/{{ farm.id }}" class="header-back">← {{ farm.name }}</a>
-    <span class="logo">🛰️</span>
+    <span class="logo">🚁</span>
     <h1>{{ farmland.name }}</h1>
-    <span class="subtitle">航空写真ビュー</span>
+    <span class="subtitle">ドローン写真（仮）</span>
     <span class="spacer"></span>
     <span class="crop-badge" style="margin:0">{{ farmland.crop }}</span>
     <span class="header-owner">{{ farmland.area_ha }} ha</span>
@@ -29,7 +29,7 @@
 
     <!-- Timestamp selector bar -->
     <div id="timestamp-bar">
-      <span class="ts-label">🛰️ 撮影時期</span>
+      <span class="ts-label">🚁 撮影時期（仮・衛星）</span>
       <div class="ts-sources" id="ts-sources"></div>
       <div class="ts-note" id="ts-note"></div>
     </div>
