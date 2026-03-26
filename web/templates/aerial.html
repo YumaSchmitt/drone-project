@@ -37,9 +37,10 @@ const center = {{ center_json | safe }};
 // --- Map setup ---
 const map = L.map("aerial-map", { zoomControl: true }).setView(center, 17);
 
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-  attribution: 'Tiles &copy; Esri',
-  maxZoom: 20,
+L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+  attribution: 'Imagery &copy; Google',
+  maxZoom: 21,
+  maxNativeZoom: 21,
 }).addTo(map);
 
 // Draw polygon border

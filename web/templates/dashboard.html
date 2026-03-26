@@ -95,8 +95,9 @@ farmlands.forEach((fl, i) => {
   if (!mapEl) return;
 
   const m = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-    maxZoom: 20,
+  L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+    maxZoom: 21,
+    maxNativeZoom: 21,
   }).addTo(m);
 
   const latlngs = fl.polygon.map(c => [c[0], c[1]]);
